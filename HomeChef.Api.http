@@ -1,0 +1,6 @@
+@HomeChef.Api_HostAddress = http://localhost:5072
+
+GET {{HomeChef.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
