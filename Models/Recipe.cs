@@ -10,6 +10,7 @@ public sealed class Recipe
     public string? ImageUrl { get; set; }
     public string? Category { get; set; }
     public string? Difficulty { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 
     public List<RecipeIngredient> Ingredients { get; set; } = new();
     public List<RecipeInstruction> Instructions { get; set; } = new();
