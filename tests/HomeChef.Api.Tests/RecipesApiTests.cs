@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Xunit;
@@ -25,9 +26,16 @@ public sealed class RecipesApiTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        adminConnectionString = Environment.GetEnvironmentVariable("HOMECHEF_TEST_CONNECTION_STRING")
-            ?? throw new InvalidOperationException(
-                "Set HOMECHEF_TEST_CONNECTION_STRING to a dedicated PostgreSQL test server (CREATEDB required).");
+        var configuration = new ConfigurationBuilder()
+            .AddUserSecrets<RecipesApiTests>(optional: true)
+            .AddEnvironmentVariables()
+            .Build();
+        adminConnectionString = configuration["HOMECHEF_TEST_CONNECTION_STRING"]!;
+        if (string.IsNullOrWhiteSpace(adminConnectionString))
+            throw new InvalidOperationException(
+                "Set HOMECHEF_TEST_CONNECTION_STRING as an environment variable or a User Secret " +
+                "on the test project to a dedicated PostgreSQL test server (CREATEDB required). " +
+                "See README.md for setup instructions.");
 
         await using var admin = new NpgsqlConnection(adminConnectionString);
         await admin.OpenAsync();

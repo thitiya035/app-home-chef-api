@@ -87,7 +87,9 @@ See `HomeChef.Api.http` for sample requests.
 
 Tests use xUnit, the ASP.NET Core test host and **real PostgreSQL**. Point
 `HOMECHEF_TEST_CONNECTION_STRING` at a dedicated test server with a role that
-can create databases. Each test creates a unique `homechef_test_<guid>` database
+can create databases. Set it as an environment variable or save it in the test
+project's separate User Secrets store. The environment variable takes precedence.
+Each test creates a unique `homechef_test_<guid>` database
 and drops only that database afterwards. Tests never use the app connection
 string. Missing test configuration fails explicitly instead of silently skipping.
 
@@ -97,7 +99,22 @@ password if the server requires authentication):
 ```powershell
 $env:HOMECHEF_TEST_CONNECTION_STRING = 'Host=127.0.0.1;Port=55432;Database=postgres;Username=homechef_test;Password=YOUR_TEST_PASSWORD'
 dotnet build --artifacts-path artifacts/build
-dotnet test tests/HomeChef.Api.Tests/HomeChef.Api.Tests.csproj --artifacts-path artifacts/test-build
+dotnet test tests/HomeChef.Api.Tests/HomeChef.Api.Tests.csproj --artifacts-path artifacts/test-build --logger "console;verbosity=minimal"
+```
+
+To save that connection for future terminal and IDE sessions, run this once
+after setting the environment variable above:
+
+```powershell
+@{ HOMECHEF_TEST_CONNECTION_STRING = $env:HOMECHEF_TEST_CONNECTION_STRING } | ConvertTo-Json -Compress | dotnet user-secrets set --project tests/HomeChef.Api.Tests/HomeChef.Api.Tests.csproj
+```
+
+The dedicated PostgreSQL server must be running before testing. If you already
+have a local PostgreSQL 18 test cluster at `artifacts/postgres-test`, start it
+on the test port with:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe' start -D artifacts/postgres-test -l artifacts/postgres-test/server.log -o '-h 127.0.0.1 -p 55432' -w
 ```
 
 Separate artifact paths allow verification while a development app holds the
