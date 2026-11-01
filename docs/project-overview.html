@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="เอกสาร HomeChef API: ภาพรวมระบบ API workflow โครงสร้างตาราง PostgreSQL validation และการใช้งาน">
+  <title>HomeChef API — ภาพรวมระบบและ Data Dictionary</title>
+  <style>
+    :root { color-scheme: light; --ink:#182c39; --muted:#526776; --accent:#087f73; --line:#dce6ea; --paper:#fff; --bg:#f3f6f8; --nav:250px; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:24px; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.85 "Leelawadee UI","Noto Sans Thai",Tahoma,Arial,sans-serif; }
+    a { color:var(--accent); text-underline-offset:3px; }
+    a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid #e4a53b; outline-offset:3px; }
+    .skip { position:absolute; top:-80px; left:20px; background:white; padding:10px; z-index:20; }.skip:focus { top:10px; }
+    aside { position:fixed; inset:0 auto 0 0; width:var(--nav); padding:28px 22px; background:#122c36; color:#c4d8de; overflow:auto; }
+    .brand { color:white; font-size:23px; font-weight:750; letter-spacing:-.7px; }
+    .edition { color:#9dbac4; font-size:12px; margin:5px 0 28px; }
+    nav a { display:block; color:#d3e4e9; padding:7px 10px; text-decoration:none; border-radius:6px; font-size:14px; }
+    nav a:hover { background:#214650; color:white; }
+    main { max-width:1450px; margin-left:var(--nav); padding:32px clamp(20px,4vw,64px) 70px; }
+    header { border-radius:18px; background:linear-gradient(125deg,#113b43,#11695e); color:white; padding:40px; margin-bottom:28px; }
+    .eyebrow { text-transform:uppercase; font-size:12px; font-weight:700; letter-spacing:2px; color:#a8e6d4; }
+    h1 { margin:8px 0 12px; font-size:clamp(30px,4vw,47px); line-height:1.25; letter-spacing:-1px; }
+    header p { max-width:850px; color:#dbefeb; margin:10px 0; }
+    .tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+    .tag { border:1px solid #7dc4b280; padding:3px 11px; border-radius:99px; font-size:12px; }
+    .toolbar { display:flex; justify-content:space-between; gap:16px; align-items:center; margin:18px 0; font-size:13px; color:var(--muted); }
+    button { font:inherit; color:var(--accent); background:white; border:1px solid #a6c6c1; border-radius:7px; padding:7px 14px; cursor:pointer; }
+    section { background:var(--paper); border:1px solid var(--line); border-radius:13px; padding:28px; margin:22px 0; }
+    h2 { font-size:25px; margin:0 0 18px; letter-spacing:-.5px; } h2 .num { color:var(--accent); font-size:14px; margin-right:10px; }
+    h3 { font-size:19px; margin:26px 0 10px; } h4 { font-size:16px; margin:18px 0 8px; }
+    p { margin:10px 0; } ul,ol { padding-left:24px; margin:10px 0; } li { margin:6px 0; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+    .card { padding:19px; border:1px solid var(--line); border-radius:9px; background:#fbfdfd; }.card h3 { margin:0 0 8px; }.card p { font-size:14px; }
+    .stat { font-size:29px; font-weight:750; color:var(--accent); }.muted { color:var(--muted); font-size:14px; }
+    .note { padding:14px 18px; border-left:4px solid var(--accent); background:#edf8f5; border-radius:0 7px 7px 0; margin:16px 0; }
+    .note.warn { background:#fff8e8; border-color:#bd7d11; }
+    code { font:13px/1.65 Consolas,"Cascadia Code",monospace; background:#edf2f5; padding:2px 5px; border-radius:4px; overflow-wrap:anywhere; }
+    pre { background:#102c38; color:#dcebf3; padding:20px; border-radius:9px; overflow:auto; line-height:1.7; tab-size:2; }
+    pre code { color:inherit; background:none; padding:0; overflow-wrap:normal; }
+    .table-wrap { width:100%; overflow-x:auto; margin:14px 0; }
+    table { width:100%; border-collapse:collapse; font-size:14px; text-align:left; }
+    caption { text-align:left; font-weight:700; margin-bottom:9px; }
+    th { background:#edf4f5; font-weight:650; color:#244853; } th,td { border-bottom:1px solid var(--line); padding:11px 12px; vertical-align:top; }
+    tbody tr:hover { background:#f8fbfb; }.nowrap { white-space:nowrap; }
+    .method { font:700 12px Consolas,monospace; display:inline-block; min-width:53px; border-radius:5px; text-align:center; padding:4px 7px; background:#e2f2ec; color:#12654b; }
+    .post { background:#e5edff; color:#2454a1; }.put { background:#fff0d6; color:#9d5c05; }.delete { background:#ffe8e7; color:#a63838; }
+    .flow { display:flex; flex-wrap:wrap; align-items:stretch; gap:9px; margin:18px 0; }
+    .flow .node { flex:1 1 130px; background:#f0f7f7; border:1px solid #c7deda; border-radius:8px; padding:12px; font-size:14px; text-align:center; }
+    .flow .arrow { align-self:center; color:var(--accent); font-size:23px; }
+    .diagram { overflow:auto; margin:18px 0; }.diagram svg { display:block; width:100%; min-width:600px; height:auto; }
+    details { border:1px solid var(--line); border-radius:8px; margin:12px 0; padding:13px 17px; } summary { cursor:pointer; font-weight:650; } details pre { margin-bottom:0; }
+    .demo { background:#f5faf9; border:1px solid #bcdad1; border-radius:10px; padding:20px; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:16px; }.demo label { display:flex; flex-direction:column; gap:5px; font-size:14px; flex:1 1 140px; }
+    input { width:100%; padding:9px 12px; border:1px solid #a8bfc3; border-radius:6px; background:white; font:inherit; color:var(--ink); }
+    #demo-status { min-height:32px; margin-top:13px; }.error { color:#9b2c2c; }
+    footer { font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:20px; }
+    @media (max-width:1050px) { :root { --nav:210px; }.grid { grid-template-columns:1fr; } section { padding:22px; } header { padding:28px; } }
+    @media (max-width:760px) { aside { position:static; width:auto; padding:20px; } .edition { margin-bottom:12px; } nav { display:flex; gap:3px; overflow:auto; } nav a { white-space:nowrap; } main { margin:0; padding:18px; } header { padding:24px; } .toolbar { align-items:flex-start; } th,td { padding:9px; } }
+    @media print { @page { margin:15mm; } body { background:white; font-size:11pt; } aside,.toolbar,.demo { display:none; } main { margin:0; max-width:none; padding:0; } header { background:none; color:#12343a; padding:0 0 14px; border-bottom:2px solid #087f73; } header p,.eyebrow { color:#315962; }.tag { color:#315962; border-color:#bbb; } section { border:none; padding:12px 0; margin:10px 0; } h2,h3,h4 { break-after:avoid; } tr,.card,.note,.diagram { break-inside:avoid; } pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#f2f4f5; color:#173442; border:1px solid #ccc; } th { background:#eee; } .table-wrap { overflow:visible; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+<a class="skip" href="#overview">ข้ามไปยังเนื้อหา</a>
+<aside>
+  <div class="brand">HomeChef<span style="color:#70d5b7">.Api</span></div>
+  <div class="edition">PROJECT &amp; DATA REFERENCE · 01 NOV 2026</div>
+  <nav aria-label="สารบัญ">
+    <a href="#overview">01 ภาพรวมโปรเจกต์</a>
+    <a href="#architecture">02 โครงสร้างและการเริ่มระบบ</a>
+    <a href="#endpoints">03 API และสัญญาข้อมูล</a>
+    <a href="#workflows">04 Workflow รายเส้นทาง</a>
+    <a href="#pagination">05 Pagination</a>
+    <a href="#schema">06 ตารางและคอลัมน์</a>
+    <a href="#mapping">07 API ↔ Database</a>
+    <a href="#validation">08 Validation</a>
+    <a href="#operations">09 ตั้งค่าและใช้งาน</a>
+    <a href="#quality">10 Tests และข้อจำกัด</a>
+    <a href="#sources">11 ไฟล์อ้างอิง</a>
+  </nav>
+</aside>
+<main>
+  <header>
+    <div class="eyebrow">Technical project handbook</div>
+    <h1>HomeChef API</h1>
+    <p>เอกสารภาพรวมระบบจัดการสูตรอาหาร ตั้งแต่ HTTP request จนถึง PostgreSQL พร้อม workflow, data dictionary และความสัมพันธ์ของข้อมูล สำหรับพัฒนา frontend/backend และดูแลฐานข้อมูล</p>
+    <div class="tags"><span class="tag">.NET 10</span><span class="tag">ASP.NET Core Controllers</span><span class="tag">EF Core + Npgsql</span><span class="tag">PostgreSQL</span><span class="tag">Soft Delete</span><span class="tag">Pagination</span></div>
+  </header>
+  <div class="toolbar"><span>จัดทำจาก source code ใน workspace ณ 1 พฤศจิกายน 2026 · ภาษาไทย</span><button type="button" id="print-button">พิมพ์ / บันทึก PDF</button></div>
+
+  <section id="overview">
+    <h2><span class="num">01</span>ภาพรวมโปรเจกต์</h2>
+    <p><strong>HomeChef.Api</strong> เป็น REST API สำหรับสร้าง อ่าน แก้ไข และลบสูตรอาหาร แต่ละสูตรมีรายละเอียดหลัก วัตถุดิบหลายรายการ และขั้นตอนการทำหลายขั้นตอน ส่งและรับข้อมูลเป็น JSON</p>
+    <div class="grid">
+      <div class="card"><div class="stat">3 ตาราง</div><p>สูตรอาหาร วัตถุดิบ และขั้นตอน แยกเก็บและเชื่อมด้วย Recipe ID</p></div>
+      <div class="card"><div class="stat">5 Recipe APIs</div><p>POST, GET รายการ, GET รายตัว, PUT และ DELETE พร้อม DB health อีก 1 endpoint</p></div>
+      <div class="card"><div class="stat">1 สูตร → หลายรายการ</div><p>จัดลำดับวัตถุดิบและขั้นตอนจาก Array ที่ส่งมา พร้อมแทนรายการทั้งหมดเมื่อ PUT</p></div>
+    </div>
+    <div class="note"><strong>ขอบเขตเอกสาร:</strong> พฤติกรรมและ schema ด้านล่างอ้างอิงโมเดล, EF mapping, Controllers และ SQL scripts ปัจจุบัน ไม่ใช่ผลรับรองว่า schema หรือสิทธิ์ของฐานข้อมูลที่กำลังรันตรงแล้วทั้งหมด เอกสารไม่บรรจุ connection string หรือรหัสผ่านจริง</div>
+  </section>
+
+  <section id="architecture">
+    <h2><span class="num">02</span>โครงสร้างและการเริ่มระบบ</h2>
+    <div class="flow" aria-label="เส้นทางข้อมูลหลัก">
+      <div class="node"><strong>Client / Swagger</strong><br>HTTP + JSON</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><strong>RecipesController</strong><br>bind, validate, workflow</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><strong>HomeChefDbContext</strong><br>EF mapping / SQL</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><strong>NpgsqlDataSource</strong><br>การเชื่อมต่อ PostgreSQL</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="node"><strong>PostgreSQL</strong><br>3 ตารางใน schema public</div>
+    </div>
+    <p>ผลลัพธ์ถูกแปลงจาก Entity เป็น <code>RecipeResponse</code> ก่อนส่งกลับ Client ทำให้รายละเอียดภายใน เช่น ID ของรายการย่อย, foreign key, position และสถานะลบ ไม่ถูกเปิดเผยทั้งหมดใน API</p>
+    <div class="table-wrap"><table><caption>หน้าที่ของส่วนประกอบ</caption><thead><tr><th>ส่วน</th><th>หน้าที่</th></tr></thead><tbody>
+      <tr><td><code>Program.cs</code></td><td>อ่าน config, ลงทะเบียน dependency injection, Controllers, OpenAPI, exception handler และ HTTP pipeline</td></tr>
+      <tr><td><code>Contracts/Recipes</code></td><td>กำหนด request และ response ของ API แยกจากโมเดลฐานข้อมูล</td></tr>
+      <tr><td><code>Models/Recipe.cs</code></td><td>Entity ของ Recipe, RecipeIngredient และ RecipeInstruction</td></tr>
+      <tr><td><code>HomeChefDbContext</code></td><td>กำหนดตาราง/คอลัมน์, FK, unique indexes, precision และ query filter สำหรับ Soft Delete</td></tr>
+      <tr><td><code>DatabaseHealthController</code></td><td>ใช้ Npgsql โดยตรงเพื่อเปิด connection และรัน <code>SELECT 1</code></td></tr>
+    </tbody></table></div>
+    <h3>Startup และ request pipeline</h3>
+    <ol>
+      <li><code>WebApplication.CreateBuilder</code> โหลด config และอ่าน <code>ConnectionStrings:HomeChefDb</code>; ถ้าไม่มีค่านี้ จะ throw และไม่เริ่มแอป</li>
+      <li>สร้าง <code>NpgsqlDataSource</code> แบบ singleton เมื่อถูก resolve และลงทะเบียน <code>HomeChefDbContext</code> ผ่าน <code>UseNpgsql</code> โดย DbContext ใช้ scope ของ request</li>
+      <li>เพิ่ม Controllers, Problem Details และ OpenAPI; เปิด exception handler เพื่อแปลง unexpected exception เป็น HTTP error</li>
+      <li>เฉพาะ Development เปิด <code>/openapi/v1.json</code> และ Swagger UI ที่ <code>/swagger</code></li>
+      <li>ใช้ HTTPS redirection, authorization middleware และ map Controllers; ปัจจุบันยังไม่มี authentication scheme หรือ <code>[Authorize]</code> บน endpoints เหล่านี้</li>
+    </ol>
+    <div class="table-wrap"><table><caption>แพ็กเกจหลักตาม project file</caption><thead><tr><th>แพ็กเกจ</th><th>เวอร์ชัน</th><th>ใช้ทำอะไร</th></tr></thead><tbody>
+      <tr><td>Microsoft.AspNetCore.OpenApi</td><td>10.0.14</td><td>สร้างเอกสาร OpenAPI</td></tr><tr><td>Npgsql</td><td>10.0.3</td><td>PostgreSQL driver / data source</td></tr><tr><td>Npgsql.EntityFrameworkCore.PostgreSQL</td><td>10.0.3</td><td>EF Core provider สำหรับ PostgreSQL</td></tr><tr><td>Swashbuckle.AspNetCore.SwaggerUI</td><td>10.3.1</td><td>แสดง UI สำหรับทดสอบ OpenAPI</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section id="endpoints">
+    <h2><span class="num">03</span>API และสัญญาข้อมูล</h2>
+    <div class="table-wrap"><table><thead><tr><th>Method</th><th>Endpoint</th><th>Input</th><th>สำเร็จ</th><th>กรณีอื่น</th></tr></thead><tbody>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/recipes</code></td><td>CreateRecipeRequest ใน JSON body</td><td>201 + RecipeResponse + Location header</td><td>400 validation / 500 server error</td></tr>
+      <tr><td><span class="method">GET</span></td><td><code>/api/recipes</code></td><td>query: page, itempage</td><td>200 + RecipeListResponse แม้หน้าว่าง</td><td>400 query ไม่ถูกต้อง / 500</td></tr>
+      <tr><td><span class="method">GET</span></td><td><code>/api/recipes/{id}</code></td><td>ID แบบ GUID ใน URL</td><td>200 + RecipeResponse</td><td>404 ไม่พบหรือถูกลบ / 500</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/api/recipes/{id}</code></td><td>ID + CreateRecipeRequest เต็มชุด</td><td>200 + RecipeResponse หลังอัปเดต</td><td>400 validation / 404 / 500</td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td><code>/api/recipes/{id}</code></td><td>ID แบบ GUID</td><td>204 ไม่มี body</td><td>404 ไม่พบหรือเคยลบแล้ว / 500</td></tr>
+      <tr><td><span class="method">GET</span></td><td><code>/api/db-health</code></td><td>ไม่มี</td><td>200 + <code>{"status":"connected"}</code></td><td>503 unavailable / unhealthy</td></tr>
+    </tbody></table></div>
+    <p class="muted">Route รายตัวใช้ <code>{id:guid}</code> หาก ID ไม่ใช่ GUID จะไม่ตรง route และได้ 404 ไม่ใช่การค้นหาด้วยชื่อสูตร</p>
+    <h3>ตัวอย่าง request ของ POST / PUT</h3>
+    <pre><code>{
+  "name": "ข้าวกะเพราหมูสับ",
+  "description": "ผัดกะเพราหมูสับสำหรับสองคน",
+  "ingredients": [
+    { "name": "หมูสับ", "quantity": 200, "unit": "กรัม", "note": null },
+    { "name": "ใบกะเพรา", "quantity": 20, "unit": "กรัม", "note": "" }
+  ],
+  "instructions": [
+    { "description": "ผัดหมูสับจนสุก" },
+    { "description": "ปรุงรสแล้วใส่ใบกะเพรา" }
+  ],
+  "servings": 2,
+  "imageUrl": "",
+  "category": "อาหารจานเดียว",
+  "difficulty": "Easy"
+}</code></pre>
+    <p>Client ไม่ต้องส่ง <code>id</code>, <code>recipeId</code>, <code>position</code>, <code>stepNumber</code> หรือ <code>deletedAt</code> ใน request ของการสร้าง/แก้ไข Backend เป็นผู้กำหนด ID และลำดับ</p>
+    <details open><summary>ตัวอย่าง RecipeResponse หลังบันทึก</summary><pre><code>{
+  "id": "5fc08c2a-74c3-4a6d-b49c-e89872eb7389",
+  "name": "ข้าวกะเพราหมูสับ",
+  "description": "ผัดกะเพราหมูสับสำหรับสองคน",
+  "ingredients": [
+    { "name": "หมูสับ", "quantity": 200, "unit": "กรัม", "note": null },
+    { "name": "ใบกะเพรา", "quantity": 20, "unit": "กรัม", "note": null }
+  ],
+  "instructions": [
+    { "stepNumber": 1, "description": "ผัดหมูสับจนสุก" },
+    { "stepNumber": 2, "description": "ปรุงรสแล้วใส่ใบกะเพรา" }
+  ],
+  "servings": 2,
+  "imageUrl": null,
+  "category": "อาหารจานเดียว",
+  "difficulty": "Easy"
+}</code></pre></details>
+    <div class="note"><strong>ชื่อ JSON ที่ใช้จริง:</strong> <code>totalRecord</code> และ <code>record</code> ตัวพิมพ์ตามนี้ รายการสูตรอ่านจาก <code>response.record</code>; API รายตัว, POST และ PUT ยังคงคืน RecipeResponse โดยตรง</div>
+  </section>
+
+  <section id="workflows">
+    <h2><span class="num">04</span>Workflow รายเส้นทาง</h2>
+    <h3><span class="method post">POST</span> สร้างสูตรอาหาร</h3>
+    <ol>
+      <li>รับและ bind JSON เป็น <code>CreateRecipeRequest</code>; ตรวจ required fields และ business validation หากผิดคืน 400 ก่อนเขียนข้อมูล</li>
+      <li>สร้าง <code>Recipe</code> โดยแอปกำหนด GUID ใหม่; trim ชื่อและ normalize optional strings ให้เป็นข้อความที่ trim แล้วหรือ null</li>
+      <li>สร้าง ingredients โดยใช้ตำแหน่ง Array + 1 เป็น <code>position</code>; ปัด quantity เป็นทศนิยม 2 ตำแหน่ง</li>
+      <li>สร้าง instructions โดยใช้ตำแหน่ง Array + 1 เป็น <code>step_number</code> และ trim description</li>
+      <li><code>db.Recipes.Add</code> และ <code>SaveChangesAsync</code> บันทึกทั้ง graph โดย EF ใช้ transaction ของการบันทึกครั้งนั้นกับฐานข้อมูล relational</li>
+      <li>แปลงเป็น RecipeResponse; คืน 201 และ Location ชี้ไป GET ของสูตรที่สร้าง</li>
+    </ol>
+    <h3><span class="method">GET</span> อ่านรายการและอ่านรายตัว</h3>
+    <p>ทั้งสองแบบอ่านผ่าน query filter <code>DeletedAt == null</code> และ <code>AsNoTracking</code> เพราะไม่มีการแก้ไขข้อมูล ใช้ <code>Include</code> วัตถุดิบ/ขั้นตอน และ <code>AsSplitQuery</code> แยก query โหลดความสัมพันธ์ ก่อนจัดลำดับรายการย่อยใน <code>ToResponse</code></p>
+    <ul><li><strong>รายการ:</strong> Count สูตรที่ยังใช้งาน → คำนวณ offset → ตรวจหน้าว่าง → OrderBy ID → Skip/Take → โหลดรายการย่อย → คืนจำนวนรวมและ record</li><li><strong>รายตัว:</strong> ค้นจาก ID → ถ้าไม่พบคืน 404 → ถ้าพบคืน RecipeResponse 200</li></ul>
+    <h3><span class="method put">PUT</span> Full Update และ transaction</h3>
+    <div class="flow" aria-label="ลำดับอัปเดตแบบ transaction"><div class="node">Validate</div><span class="arrow" aria-hidden="true">→</span><div class="node">Begin transaction<br>โหลดสูตร + รายการย่อย</div><span class="arrow" aria-hidden="true">→</span><div class="node">ลบรายการย่อยเดิม<br>Save #1</div><span class="arrow" aria-hidden="true">→</span><div class="node">ใส่ค่าชุดใหม่<br>Save #2</div><span class="arrow" aria-hidden="true">→</span><div class="node">Commit<br>200 + response</div></div>
+    <ul>
+      <li>PUT ใช้ validation และ mapping ร่วมกับ POST; validation เกิดก่อนค้นหา ID ดังนั้น request ไม่ถูกต้องอาจได้ 400 ก่อนการตัดสินว่า ID มีหรือไม่</li>
+      <li>สูตรหลักยังใช้ ID เดิม แต่ลบ ingredients/instructions เดิมจริง แล้วสร้างรายการย่อยใหม่ทั้งหมด จึงไม่ใช่การแก้รายการย่อยทีละ ID</li>
+      <li>Save ครั้งแรกปล่อย unique keys <code>(recipe_id, position)</code> และ <code>(recipe_id, step_number)</code> ก่อนเพิ่มชุดใหม่</li>
+      <li>Save ทั้งสองครั้งอยู่ใน transaction เดียว หากมี exception จะไม่ commit และ rollback ข้อมูลเดิมกลับมา ทั้งรายละเอียดสูตรและรายการย่อย</li>
+      <li>ส่ง optional field เป็น null เพื่อเคลียร์ค่าได้; หากไม่ส่ง optional field ค่านั้นก็เป็น null และถูกเคลียร์เช่นกัน เพราะเป็น Full Update</li>
+    </ul>
+    <h3><span class="method delete">DELETE</span> Soft Delete</h3>
+    <pre><code>แนวคิด SQL ที่สอดคล้องกับการทำงาน (ไม่ใช่ SQL ที่คัดจาก runtime):
+UPDATE public.recipes
+SET deleted_at = &lt;เวลาปัจจุบัน UTC&gt;
+WHERE id = &lt;recipe ID&gt; AND deleted_at IS NULL;</code></pre>
+    <p>ใช้ <code>ExecuteUpdateAsync</code> อัปเดตเฉพาะ timestamp โดยไม่ต้องโหลด Entity หาก affected rows = 0 คืน 404 มิฉะนั้นคืน 204 ไม่มี body แถวสูตรและรายการย่อยยังอยู่ การอ่านและ PUT ครั้งต่อไปจะไม่พบสูตรนั้น และ DELETE ซ้ำได้ 404 ปัจจุบันไม่มี API กู้คืน</p>
+    <h3>DB health</h3>
+    <p>เปิด connection → รัน <code>SELECT 1</code> → ถ้าได้เลข 1 คืน connected 200; หากเปิด connection/คำสั่งเกิด NpgsqlException คืน unavailable 503 และถ้าได้ค่าที่ไม่ใช่ 1 คืน unhealthy 503 การตรวจนี้ไม่อ่านตารางสูตรและไม่ยืนยันสิทธิ์ CRUD หรือคอลัมน์ <code>deleted_at</code></p>
+  </section>
+
+  <section id="pagination">
+    <h2><span class="num">05</span>Pagination</h2>
+    <div class="table-wrap"><table><thead><tr><th>Query parameter</th><th>ค่าเริ่มต้น</th><th>ช่วงที่ยอมรับ</th><th>ความหมาย</th></tr></thead><tbody><tr><td><code>page</code></td><td>1</td><td>จำนวนเต็ม 1–2,147,483,647</td><td>เลขหน้า เริ่มนับจาก 1</td></tr><tr><td><code>itempage</code></td><td>10</td><td>จำนวนเต็ม 1–100</td><td>จำนวนสูตรสูงสุดต่อหน้า</td></tr></tbody></table></div>
+    <pre><code>GET /api/recipes?page=2&amp;itempage=10
+
+offset = (page - 1) × itempage
+totalRecord = จำนวนสูตรทั้งหมดที่ deleted_at IS NULL
+record = สูตรในหน้าที่ขอ หลังเรียง id จากน้อยไปมาก</code></pre>
+    <p><code>totalRecord</code> ไม่ใช่จำนวนรายการในหน้าและไม่ใช่จำนวนหน้า การเรียงใช้ ID ไม่ใช่เวลาสร้าง เมื่อ offset มากกว่าหรือเท่าจำนวนรวม คืน <code>record: []</code> กับ 200 โดยยังคงจำนวนรวมไว้ Offset คำนวณแบบ long ก่อนตรวจขอบเขต เพื่อไม่ให้ล้นเมื่อเลขหน้าสูงมาก</p>
+    <p class="muted">ตัวอย่าง: มีสูตรที่ยังใช้งาน 25 สูตร ขอ page=3 และ itempage=10 จะได้ totalRecord=25 และ record 5 สูตร; ขอ page=4 จะได้ totalRecord=25 และ record ว่าง</p>
+    <div class="demo" id="pagination-demo">
+      <h3 style="margin-top:0">ลองคำนวณหน้าข้อมูล</h3><p class="muted">เครื่องมืออธิบายการแบ่งหน้าเท่านั้น ไม่เรียก API และไม่เขียนฐานข้อมูล</p>
+      <div class="demo-controls"><label for="demo-total">จำนวนสูตรที่ยังใช้งาน<input id="demo-total" type="number" min="0" max="2147483647" step="1" value="25"></label><label for="demo-page">page<input id="demo-page" type="number" min="1" max="2147483647" step="1" value="3"></label><label for="demo-size">itempage<input id="demo-size" type="number" min="1" max="100" step="1" value="10"></label></div>
+      <div id="demo-status" role="status" aria-live="polite"></div><pre><code id="demo-json"></code></pre>
+      <noscript>เปิด JavaScript เพื่อใช้ตัวอย่างคำนวณ เนื้อหาเอกสารและตัวอย่างแบบคงที่อ่านได้ตามปกติ</noscript>
+    </div>
+  </section>
+
+  <section id="schema">
+    <h2><span class="num">06</span>ตาราง ความสัมพันธ์ และทุกคอลัมน์</h2>
+    <p>ใช้ PostgreSQL schema <code>public</code> รวม 3 ตาราง 19 คอลัมน์ตามโมเดลปัจจุบัน ชนิดด้านล่างอ้างอิง EF mapping และชนิดมาตรฐานที่ Npgsql ใช้กับโมเดลนี้ ให้เทียบ schema จริงอีกครั้งเมื่อ deploy</p>
+    <div class="diagram">
+      <svg viewBox="0 0 950 320" role="img" aria-labelledby="er-title er-desc" xmlns="http://www.w3.org/2000/svg">
+        <title id="er-title">ความสัมพันธ์สูตรอาหารกับวัตถุดิบและขั้นตอน</title><desc id="er-desc">recipes.id หนึ่งรายการเชื่อมได้กับ recipe_ingredients.recipe_id หลายรายการ และ recipe_instructions.recipe_id หลายรายการ ทั้งสองความสัมพันธ์กำหนด cascade สำหรับการลบแถวจริง</desc>
+        <defs><marker id="er-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9Z" fill="#087f73"/></marker></defs>
+        <rect x="20" y="85" width="270" height="155" rx="12" fill="#edf8f5" stroke="#8dbeb2"/><text x="40" y="118" fill="#075b50" font-size="20" font-weight="700" font-family="Consolas,monospace">public.recipes</text><text x="40" y="151" fill="#183c45" font-size="16" font-family="Consolas,monospace">PK id : uuid</text><text x="40" y="182" fill="#183c45" font-size="15" font-family="Consolas,monospace">name, servings, ...</text><text x="40" y="212" fill="#183c45" font-size="15" font-family="Consolas,monospace">deleted_at : timestamptz?</text>
+        <path d="M290 135 H380 V80 H485" fill="none" stroke="#087f73" stroke-width="2.5" marker-end="url(#er-arrow)"/><path d="M290 195 H380 V245 H485" fill="none" stroke="#087f73" stroke-width="2.5" marker-end="url(#er-arrow)"/>
+        <text x="307" y="122" font-size="16" fill="#075b50">1</text><text x="448" y="65" font-size="16" fill="#075b50">N</text><text x="307" y="220" font-size="16" fill="#075b50">1</text><text x="448" y="270" font-size="16" fill="#075b50">N</text>
+        <rect x="495" y="15" width="435" height="128" rx="12" fill="#f3f7fc" stroke="#b5cadf"/><text x="515" y="48" fill="#234e79" font-size="20" font-weight="700" font-family="Consolas,monospace">public.recipe_ingredients</text><text x="515" y="80" fill="#183c45" font-size="15" font-family="Consolas,monospace">PK id · FK recipe_id → recipes.id</text><text x="515" y="111" fill="#183c45" font-size="15" font-family="Consolas,monospace">UNIQUE (recipe_id, position)</text>
+        <rect x="495" y="177" width="435" height="128" rx="12" fill="#fff8eb" stroke="#dcc691"/><text x="515" y="210" fill="#7a5918" font-size="20" font-weight="700" font-family="Consolas,monospace">public.recipe_instructions</text><text x="515" y="242" fill="#183c45" font-size="15" font-family="Consolas,monospace">PK id · FK recipe_id → recipes.id</text><text x="515" y="273" fill="#183c45" font-size="15" font-family="Consolas,monospace">UNIQUE (recipe_id, step_number)</text>
+      </svg>
+    </div>
+    <h3>6.1 public.recipes — ข้อมูลหลักของสูตรอาหาร</h3>
+    <div class="table-wrap"><table><thead><tr><th>Column</th><th>ชนิด PostgreSQL</th><th>NULL</th><th>ที่มา / หน้าที่</th></tr></thead><tbody>
+      <tr><td><code>id</code> · PK</td><td>uuid</td><td>ไม่ได้</td><td>GUID สร้างโดยแอปเมื่อ new Recipe; EF กำหนด ValueGeneratedNever; ใช้อ้างอิงทุก API รายตัว</td></tr>
+      <tr><td><code>name</code></td><td>varchar(200)</td><td>ไม่ได้</td><td>ชื่อสูตรจาก request.name หลัง trim; ต้องไม่เป็นข้อความว่าง</td></tr>
+      <tr><td><code>description</code></td><td>text</td><td>ได้</td><td>รายละเอียดสูตร; ข้อความว่าง/ช่องว่างถูกแปลงเป็น null</td></tr>
+      <tr><td><code>servings</code></td><td>integer</td><td>ไม่ได้</td><td>จำนวนเสิร์ฟ; API ตรวจว่ามากกว่า 0</td></tr>
+      <tr><td><code>image_url</code></td><td>text</td><td>ได้</td><td>URL รูปภาพ; API รับ HTTP/HTTPS หรือ null; ไม่ใช่การอัปโหลดไฟล์รูป</td></tr>
+      <tr><td><code>category</code></td><td>varchar(100)</td><td>ได้</td><td>หมวดหมู่เป็นข้อความ ไม่มีตารางหมวดหมู่แยกในโมเดลนี้</td></tr>
+      <tr><td><code>difficulty</code></td><td>varchar(30)</td><td>ได้</td><td>ระดับความยากเป็นข้อความ เช่น Easy; API ยังไม่บังคับ enum</td></tr>
+      <tr><td><code>deleted_at</code></td><td>timestamptz</td><td>ได้</td><td>null = ยังใช้งาน; DELETE บันทึก UTC timestamp เพื่อซ่อนสูตร; ไม่ส่งออกใน RecipeResponse</td></tr>
+    </tbody></table></div>
+    <h3>6.2 public.recipe_ingredients — วัตถุดิบของสูตร</h3>
+    <div class="table-wrap"><table><thead><tr><th>Column</th><th>ชนิด PostgreSQL</th><th>NULL</th><th>ที่มา / หน้าที่</th></tr></thead><tbody>
+      <tr><td><code>id</code> · PK</td><td>bigint</td><td>ไม่ได้</td><td>ฐานข้อมูลสร้างค่าเมื่อ INSERT ตาม ValueGeneratedOnAdd; ไม่ส่งให้ client ใน IngredientResponse</td></tr>
+      <tr><td><code>recipe_id</code> · FK</td><td>uuid</td><td>ไม่ได้</td><td>อ้างอิง recipes.id; EF จัดความสัมพันธ์จาก collection ของ Recipe</td></tr>
+      <tr><td><code>position</code></td><td>integer</td><td>ไม่ได้</td><td>ตำแหน่งเริ่ม 1 ตาม Array; ToResponse เรียงด้วยค่านี้ แต่ไม่คืน field position</td></tr>
+      <tr><td><code>name</code></td><td>varchar(200)</td><td>ไม่ได้</td><td>ชื่อวัตถุดิบหลัง trim</td></tr>
+      <tr><td><code>quantity</code></td><td>numeric(6,2)</td><td>ได้</td><td>ปริมาณ ปัดทศนิยม 2 ตำแหน่ง; API รับมากกว่า 0 ถึง 9999.99 หรือ null</td></tr>
+      <tr><td><code>unit</code></td><td>varchar(50)</td><td>ได้</td><td>หน่วย เช่น กรัม/ฟอง; API บังคับเมื่อ quantity มีค่า แม้คอลัมน์อนุญาต null</td></tr>
+      <tr><td><code>note</code></td><td>text</td><td>ได้</td><td>หมายเหตุวัตถุดิบ; optional string ผ่าน trim/null normalization</td></tr>
+    </tbody></table></div>
+    <h3>6.3 public.recipe_instructions — ขั้นตอนการทำอาหาร</h3>
+    <div class="table-wrap"><table><thead><tr><th>Column</th><th>ชนิด PostgreSQL</th><th>NULL</th><th>ที่มา / หน้าที่</th></tr></thead><tbody>
+      <tr><td><code>id</code> · PK</td><td>bigint</td><td>ไม่ได้</td><td>ฐานข้อมูลสร้างค่าเมื่อ INSERT; ไม่ส่งใน InstructionResponse</td></tr>
+      <tr><td><code>recipe_id</code> · FK</td><td>uuid</td><td>ไม่ได้</td><td>อ้างอิง recipes.id</td></tr>
+      <tr><td><code>step_number</code></td><td>integer</td><td>ไม่ได้</td><td>ลำดับขั้นตอนเริ่ม 1 ตาม Array; คืนใน JSON เป็น stepNumber</td></tr>
+      <tr><td><code>description</code></td><td>text</td><td>ไม่ได้</td><td>รายละเอียดขั้นตอนหลัง trim; API ไม่รับ null หรือข้อความว่าง</td></tr>
+    </tbody></table></div>
+    <h3>Keys, indexes และการลบที่เกี่ยวข้อง</h3>
+    <ul><li>แต่ละตารางมี primary key ที่ <code>id</code>; ทั้งสองตารางย่อยมี FK <code>recipe_id → recipes.id</code></li><li>Unique index <code>(recipe_id, position)</code> ป้องกันตำแหน่งวัตถุดิบซ้ำภายในสูตร และ <code>(recipe_id, step_number)</code> ป้องกันเลขขั้นตอนซ้ำภายในสูตร</li><li>EF กำหนด <code>DeleteBehavior.Cascade</code> สำหรับการลบแถวสูตรจริง แต่ DELETE API เปลี่ยน timestamp เท่านั้น จึงไม่ทำให้รายการย่อยถูก cascade delete</li><li>กฎมากกว่า 0, unit ต้องมีเมื่อมี quantity และ URL ต้องเป็น HTTP/HTTPS อยู่ใน validation ของ Controller; EF mapping ที่อ่านไม่ได้ประกาศ CHECK constraints สำหรับกฎเหล่านี้ จึงไม่ควรถือว่าเขียน SQL ตรงแล้วจะได้รับการตรวจแบบเดียวกัน</li></ul>
+  </section>
+
+  <section id="mapping">
+    <h2><span class="num">07</span>API ใช้ table / column ใดบ้าง</h2>
+    <div class="table-wrap"><table><thead><tr><th>Operation</th><th>recipes</th><th>recipe_ingredients</th><th>recipe_instructions</th></tr></thead><tbody>
+      <tr><td>POST</td><td>INSERT id และรายละเอียดหลัก; deleted_at เริ่ม null</td><td>INSERT recipe_id, position และข้อมูลวัตถุดิบ; DB สร้าง id</td><td>INSERT recipe_id, step_number, description; DB สร้าง id</td></tr>
+      <tr><td>GET รายการ</td><td>COUNT และ SELECT เฉพาะ deleted_at IS NULL; เรียง id และแบ่งหน้า</td><td>SELECT ของสูตรในหน้าที่ขอ แล้วเรียง position</td><td>SELECT ของสูตรในหน้าที่ขอ แล้วเรียง step_number</td></tr>
+      <tr><td>GET รายตัว</td><td>SELECT ตาม id และ deleted_at IS NULL</td><td>SELECT ของ recipe_id นั้น</td><td>SELECT ของ recipe_id นั้น</td></tr>
+      <tr><td>PUT</td><td>SELECT สูตรที่ยังใช้งาน; UPDATE รายละเอียดหลักโดยคง id เดิม</td><td>SELECT → DELETE ชุดเดิม → INSERT ชุดใหม่พร้อม position ใหม่</td><td>SELECT → DELETE ชุดเดิม → INSERT ชุดใหม่พร้อม step_number ใหม่</td></tr>
+      <tr><td>DELETE</td><td>UPDATE deleted_at เฉพาะ id ที่ยังไม่ถูกลบ</td><td>ไม่เปลี่ยน</td><td>ไม่เปลี่ยน</td></tr>
+      <tr><td>DB health</td><td colspan="3">ไม่ใช้ทั้งสามตาราง รัน SELECT 1 เท่านั้น</td></tr>
+    </tbody></table></div>
+    <h3>การแมประหว่าง JSON กับข้อมูลภายใน</h3>
+    <div class="table-wrap"><table><thead><tr><th>JSON field</th><th>ข้อมูลที่ใช้</th><th>หมายเหตุ</th></tr></thead><tbody>
+      <tr><td><code>imageUrl</code></td><td>recipes.image_url</td><td>ชื่อ JSON ใช้ camelCase ส่วนคอลัมน์ใช้ snake_case</td></tr><tr><td><code>ingredients[]</code></td><td>recipe_ingredients ที่ recipe_id ตรงกัน</td><td>ส่ง name, quantity, unit, note; ลำดับจาก position</td></tr><tr><td><code>instructions[].stepNumber</code></td><td>recipe_instructions.step_number</td><td>ส่งออกใน response; request ไม่รับเลขขั้นตอนจาก client</td></tr><tr><td><code>totalRecord</code></td><td>COUNT ของ recipes ที่ยังใช้งาน</td><td>ค่าคำนวณ ไม่ใช่คอลัมน์ที่เก็บใน DB</td></tr><tr><td><code>record[]</code></td><td>RecipeResponse ของแต่ละสูตรในหน้า</td><td>เป็น response wrapper ไม่ใช่ชื่อตาราง</td></tr><tr><td>ไม่มี field deletedAt ใน response</td><td>recipes.deleted_at</td><td>ใช้ภายในเพื่อ filter และ Soft Delete เท่านั้น</td></tr>
+    </tbody></table></div>
+  </section>
+
+  <section id="validation">
+    <h2><span class="num">08</span>Validation และการปรับค่าก่อนบันทึก</h2>
+    <div class="table-wrap"><table><thead><tr><th>Field</th><th>กฎของ POST / PUT</th></tr></thead><tbody>
+      <tr><td><code>name</code></td><td>ต้องมี ไม่ว่างหรือมีแต่ช่องว่าง; หลัง trim ยาวไม่เกิน 200 ตัวอักษร</td></tr>
+      <tr><td><code>servings</code></td><td>ต้องมีค่าเป็น integer มากกว่า 0</td></tr>
+      <tr><td><code>ingredients</code></td><td>ต้องมีอย่างน้อย 1 รายการ และห้ามมีสมาชิก null</td></tr>
+      <tr><td><code>ingredients[].name</code></td><td>ต้องมีและหลัง trim ไม่เกิน 200 ตัวอักษร</td></tr>
+      <tr><td><code>ingredients[].quantity</code></td><td>null ได้; ถ้ามีค่าต้องมากกว่า 0 และไม่เกิน 9999.99 ก่อนปัดเศษ</td></tr>
+      <tr><td><code>ingredients[].unit</code></td><td>ต้องมีข้อความเมื่อ quantity มีค่า; หลัง trim ไม่เกิน 50 ตัวอักษร</td></tr>
+      <tr><td><code>instructions</code></td><td>ต้องมีอย่างน้อย 1 รายการและแต่ละ description ต้องไม่ว่าง; สมาชิก null ไม่ผ่าน</td></tr>
+      <tr><td><code>category / difficulty</code></td><td>optional; หลัง trim สูงสุด 100 / 30 ตัวอักษรตามลำดับ ยังไม่ตรวจว่าต้องอยู่ในชุดชื่อที่กำหนด</td></tr>
+      <tr><td><code>imageUrl</code></td><td>null หรือข้อความว่างได้; ถ้ามีข้อความต้องเป็น absolute HTTP/HTTPS URL</td></tr>
+      <tr><td><code>description / note</code></td><td>optional; Controller ไม่มีการกำหนด max length เพิ่มสำหรับสอง field นี้</td></tr>
+    </tbody></table></div>
+    <p><strong>Normalization:</strong> optional strings ที่เป็น null, ว่าง หรือมีแต่ช่องว่าง กลายเป็น null; ข้อความที่เหลือถูก trim ชื่อสูตร/ชื่อวัตถุดิบ/description ของขั้นตอนถูก trim เช่นกัน</p>
+    <p><strong>Quantity:</strong> ปัดด้วย <code>MidpointRounding.AwayFromZero</code> ให้เหลือ 2 ตำแหน่ง เช่น 1.235 → 1.24 และค่าบวกเล็กมากที่ปัดเหลือ 0 เช่น 0.001 จะเก็บเป็น 0.01 แทน ไม่ใช่ 0</p>
+    <details><summary>ตัวอย่าง validation error (traceId เป็นตัวอย่าง)</summary><pre><code>{
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "servings": ["Servings must be greater than 0."],
+    "ingredients[0].unit": ["Unit is required when quantity is specified."]
+  },
+  "traceId": "example-trace-id"
+}</code></pre></details>
+    <p>JSON ที่ผิดรูปแบบหรือ bind ชนิดข้อมูลไม่ได้ถูกจัดการโดย ASP.NET Core / <code>[ApiController]</code> ส่วน business rules เพิ่มข้อความใน ModelState และส่ง <code>ValidationProblem</code> Unexpected errors ใช้ Problem Details สำหรับ 500 โดยไม่ส่งรายละเอียด exception/credentials กลับ client</p>
+  </section>
+
+  <section id="operations">
+    <h2><span class="num">09</span>ตั้งค่า รัน และเตรียมฐานข้อมูล</h2>
+    <ol>
+      <li>ติดตั้ง .NET SDK 10 และเตรียม PostgreSQL ที่มีทั้งสามตารางตาม mapping; SQL script ที่มีอยู่เป็นการเพิ่มคอลัมน์/กำหนดสิทธิ์ ไม่ใช่สคริปต์สร้างทุกตารางจากศูนย์</li>
+      <li>ตั้ง <code>ConnectionStrings:HomeChefDb</code> ใน User Secrets หรือ <code>ConnectionStrings__HomeChefDb</code> ใน environment ตาม environment ที่ใช้ ไม่ใส่รหัสผ่านจริงในไฟล์ที่ commit</li>
+      <li>ใช้เจ้าของตาราง เช่น postgres รันสคริปต์เพิ่ม deleted_at บนฐานข้อมูลที่แอปเชื่อมจริง แล้วกำหนดสิทธิ์ให้บัญชี runtime ตามความจำเป็น</li>
+      <li>restore/build และรันโปรไฟล์ http หรือ https; เปิด Swagger เฉพาะเมื่อแอปอยู่ใน Development</li>
+    </ol>
+    <pre><code>dotnet restore
+dotnet build
+dotnet run --launch-profile http
+
+# HTTP:  http://localhost:5072
+# HTTPS: https://localhost:7062  (เมื่อใช้ --launch-profile https)
+# UI:    http://localhost:5072/swagger
+# JSON:  http://localhost:5072/openapi/v1.json</code></pre>
+    <h3>SQL scripts และสิทธิ์ที่จำเป็น</h3>
+    <div class="table-wrap"><table><thead><tr><th>Script / object</th><th>สิ่งที่ทำ / สิทธิ์ของ runtime</th></tr></thead><tbody>
+      <tr><td><code>001_add_recipe_deleted_at.sql</code></td><td>ALTER TABLE recipes เพิ่ม deleted_at timestamptz nullable ด้วย IF NOT EXISTS; อยู่ใน transaction และรันซ้ำได้</td></tr>
+      <tr><td><code>002_grant_recipe_app_permissions.sql</code></td><td>ให้สิทธิ์กับ homechef_app; หากใช้ชื่อ role อื่นต้องปรับ script ให้ตรง</td></tr>
+      <tr><td>schema public</td><td>USAGE</td></tr><tr><td>recipes</td><td>SELECT, INSERT, UPDATE — ไม่ต้อง DELETE สูตรหลักเพราะ API ใช้ Soft Delete</td></tr><tr><td>recipe_ingredients / recipe_instructions</td><td>SELECT, INSERT, DELETE — DELETE จำเป็นสำหรับ PUT ที่แทนรายการเดิม</td></tr><tr><td>sequence ของ id รายการย่อย</td><td>USAGE บน recipe_ingredients_id_seq และ recipe_instructions_id_seq ตาม script</td></tr>
+    </tbody></table></div>
+    <pre><code># ตัวอย่างจากการตั้งค่าของโปรเจกต์ ปรับ host/database ให้ตรงกับแอป
+# psql ถามรหัสผ่านเจ้าของตารางผ่าน prompt
+psql --host=localhost --username=postgres --dbname=homechef_db --password --set=ON_ERROR_STOP=1 --file=Data/Scripts/001_add_recipe_deleted_at.sql
+psql --host=localhost --username=postgres --dbname=homechef_db --password --set=ON_ERROR_STOP=1 --file=Data/Scripts/002_grant_recipe_app_permissions.sql</code></pre>
+    <div class="note warn"><strong>เงื่อนไขก่อนรัน:</strong> ไม่มีกระบวนการ auto-migrate ใน startup การเพิ่ม deleted_at ต้องใช้เจ้าของตารางหรือสิทธิ์ที่เหมาะสม บัญชี runtime อาจรัน ALTER TABLE ไม่ได้ แม้ DB health ได้ 200 หาก recipe API ได้ 500 ให้ตรวจ schema และสิทธิ์ก่อนแก้ request ที่ผ่าน validation อยู่แล้ว</div>
+    <h3>Git และการส่งต่อโปรเจกต์</h3>
+    <p>ขณะจัดทำเอกสาร <code>.gitignore</code> มี <code>/Data/</code> และ source ของ DbContext อยู่ที่ <code>Data/Scripts/HomeChefDbContext.cs</code> โฟลเดอร์นี้จึงอาจไม่ถูกส่งไปกับ repository รวมถึง SQL scripts ผู้ที่ clone ใหม่ต้องได้รับไฟล์เหล่านี้จากช่องทางที่ทีมจัดไว้ มิฉะนั้นจะ build/เตรียมฐานข้อมูลไม่ครบ ไฟล์ <code>obj/</code> เป็นพื้นที่ generated/cache และถูก ignore ไม่ควรใช้เป็นแหล่ง source หลัก</p>
+  </section>
+
+  <section id="quality">
+    <h2><span class="num">10</span>Tests และข้อจำกัดปัจจุบัน</h2>
+    <p>ชุดทดสอบอยู่ใน <code>tests/HomeChef.Api.Tests</code> ใช้ xUnit และ ASP.NET Core WebApplicationFactory ส่ง HTTP request ผ่าน test host พร้อม PostgreSQL จริง ไม่ใช้ EF InMemory แทนพฤติกรรม transaction/constraints</p>
+    <ul><li>ตั้ง <code>HOMECHEF_TEST_CONNECTION_STRING</code> ไปยังเซิร์ฟเวอร์ทดสอบแยก โดย role ต้องสร้างฐานข้อมูลได้</li><li>แต่ละ test สร้างฐานชื่อ <code>homechef_test_&lt;guid&gt;</code> และลบฐานของตัวเองหลังจบ; fixture ใช้ EnsureCreated สร้าง schema ในฐานทดสอบเท่านั้น</li><li>ครอบคลุม CRUD, validation, Full Update ซ้ำ/สลับรายการ, rollback เมื่อ DB ปฏิเสธ, Soft Delete ที่ยังเก็บข้อมูล, schema upgrade, request ภาษาไทย, safe errors, OpenAPI และ pagination</li><li>Pagination ตรวจ defaults, หน้าสุดท้าย, หน้าว่าง, จำนวนรวมไม่รวมสูตรที่ลบ, query ผิดช่วง/ผิดชนิด และเลขหน้าสูงมากโดยไม่เกิด overflow</li></ul>
+    <pre><code># ตั้ง HOMECHEF_TEST_CONNECTION_STRING ผ่าน environment ก่อนรัน
+# ใช้ artifacts path แยกได้เมื่อแอปเดิมล็อก output ปกติอยู่
+dotnet build --artifacts-path artifacts/build
+dotnet test tests/HomeChef.Api.Tests/HomeChef.Api.Tests.csproj --artifacts-path artifacts/test-build</code></pre>
+    <div class="grid"><div class="card"><h3>มีแล้ว</h3><p>CRUD สูตรอาหาร, pagination, Soft Delete, validation, transaction สำหรับ Full Update, Swagger และ DB health</p></div><div class="card"><h3>ยังไม่มีในโค้ดนี้</h3><p>Login/สิทธิ์รายผู้ใช้, Search, restore API, upload รูปภาพ, EF migrations และตาราง user/category แยก</p></div><div class="card"><h3>พฤติกรรมที่ควรเข้าใจ</h3><p>PUT ลบรายการย่อยเดิมจริง; DELETE สูตรไม่ลบแถว; รายการเรียง ID ไม่ใช่วันสร้าง และ count กับรายการเป็นคนละ query ไม่ได้ครอบด้วย transaction snapshot เดียว</p></div></div>
+  </section>
+
+  <section id="sources">
+    <h2><span class="num">11</span>ไฟล์ที่ใช้อ้างอิง</h2>
+    <p>ลิงก์เหล่านี้เป็นเส้นทาง relative สำหรับเปิดจากไฟล์ HTML ในโฟลเดอร์ docs ของ workspace หากนำ HTML ไปแจกแยกจาก repository ให้ใช้ชื่อไฟล์เป็นจุดค้นหาแทน</p>
+    <div class="table-wrap"><table><thead><tr><th>ไฟล์</th><th>ข้อมูลอ้างอิงหลัก</th></tr></thead><tbody>
+      <tr><td><a href="../Program.cs">Program.cs</a></td><td>Startup, config, services, middleware และ Swagger</td></tr>
+      <tr><td><a href="../HomeChef.Api.csproj">HomeChef.Api.csproj</a></td><td>Target framework และแพ็กเกจ</td></tr>
+      <tr><td><a href="../Controllers/RecipesController.cs">Controllers/RecipesController.cs</a></td><td>Endpoints, pagination, validation, mapping และ transaction</td></tr>
+      <tr><td><a href="../Controllers/HealthController.cs">Controllers/HealthController.cs</a></td><td>DB health workflow</td></tr>
+      <tr><td><a href="../Models/Recipe.cs">Models/Recipe.cs</a></td><td>ชนิดข้อมูล Entity และ nullable fields</td></tr>
+      <tr><td><a href="../Data/Scripts/HomeChefDbContext.cs">Data/Scripts/HomeChefDbContext.cs</a></td><td>Schema, columns, relationships และ indexes ใน workspace ปัจจุบัน</td></tr>
+      <tr><td><a href="../Contracts/Recipes/CreateRecipeRequest.cs">CreateRecipeRequest.cs</a> · <a href="../Contracts/Recipes/RecipeResponse.cs">RecipeResponse.cs</a> · <a href="../Contracts/Recipes/RecipeListResponse.cs">RecipeListResponse.cs</a></td><td>Request/response contracts</td></tr>
+      <tr><td><a href="../Data/Scripts/001_add_recipe_deleted_at.sql">001_add_recipe_deleted_at.sql</a> · <a href="../Data/Scripts/002_grant_recipe_app_permissions.sql">002_grant_recipe_app_permissions.sql</a></td><td>เพิ่มคอลัมน์และกำหนด runtime permissions</td></tr>
+      <tr><td><a href="../tests/HomeChef.Api.Tests/RecipesApiTests.cs">RecipesApiTests.cs</a></td><td>พฤติกรรมที่ตรวจด้วย integration tests</td></tr>
+      <tr><td><a href="../HomeChef.Api.http">HomeChef.Api.http</a> · <a href="../README.md">README.md</a> · <a href="../Properties/launchSettings.json">launchSettings.json</a></td><td>ตัวอย่างเรียกใช้งาน คู่มือ และพอร์ต local</td></tr>
+    </tbody></table></div>
+  </section>
+  <footer>HomeChef API · เอกสารจาก source code ณ 1 พฤศจิกายน 2026 · เปิดอ่านแบบ offline ได้ ไม่โหลด font/library ภายนอก และไม่เชื่อมฐานข้อมูล</footer>
+</main>
+<script>
+  'use strict';
+  document.getElementById('print-button').addEventListener('click', function () { window.print(); });
+  (function () {
+    const totalInput = document.getElementById('demo-total');
+    const pageInput = document.getElementById('demo-page');
+    const sizeInput = document.getElementById('demo-size');
+    const status = document.getElementById('demo-status');
+    const output = document.getElementById('demo-json');
+    function update() {
+      const total = totalInput.valueAsNumber;
+      const page = pageInput.valueAsNumber;
+      const size = sizeInput.valueAsNumber;
+      const valid = Number.isInteger(total) && total >= 0 && total <= 2147483647 &&
+        Number.isInteger(page) && page >= 1 && page <= 2147483647 &&
+        Number.isInteger(size) && size >= 1 && size <= 100;
+      status.classList.toggle('error', !valid);
+      if (!valid) {
+        status.textContent = 'ค่าตัวอย่างไม่ถูกต้อง: จำนวนรวมต้องเป็นจำนวนเต็ม 0–2,147,483,647, page 1–2,147,483,647 และ itempage 1–100';
+        output.textContent = 'API จะคืน 400 เมื่อ page หรือ itempage ไม่ผ่าน validation; จำนวนรวมเป็นค่าที่ API คำนวณเอง ไม่ใช่ request parameter';
+        return;
+      }
+      const offset = (page - 1) * size;
+      const count = Math.max(0, Math.min(size, total - offset));
+      const pages = Math.ceil(total / size);
+      status.textContent = 'offset = ' + offset.toLocaleString('th-TH') + ' · จำนวนหน้าที่คำนวณได้ = ' + pages.toLocaleString('th-TH') +
+        ' · หน้านี้มี ' + count + ' สูตร' + (count ? ' (ลำดับ ' + (offset + 1) + '–' + (offset + count) + ')' : ' → 200 พร้อม record ว่าง');
+      const records = Array.from({ length: count }, function (_, i) { return { exampleOrder: offset + i + 1 }; });
+      output.textContent = '// record ในเครื่องมือนี้ใช้ลำดับจำลอง; API จริงคืน RecipeResponse เต็มรูปแบบ\n' +
+        JSON.stringify({ totalRecord: total, record: records }, null, 2);
+    }
+    [totalInput, pageInput, sizeInput].forEach(function (input) { input.addEventListener('input', update); });
+    update();
+  }());
+</script>
+</body>
+</html>
