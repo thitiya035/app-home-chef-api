@@ -1,6 +1,59 @@
 @HomeChef.Api_HostAddress = http://localhost:5072
+@recipeId = 5fc08c2a-74c3-4a6d-b49c-e89872eb7389
+@page = 1
+@itempage = 10
 
-GET {{HomeChef.Api_HostAddress}}/weatherforecast/
+# Create a recipe. Copy the returned id into recipeId above.
+POST {{HomeChef.Api_HostAddress}}/api/recipes
+Content-Type: application/json
+
+{
+  "name": "ไข่เจียวหมูสับ",
+  "description": "ไข่เจียวหมูสับแบบง่าย",
+  "ingredients": [
+    { "name": "ไข่ไก่", "quantity": 2, "unit": "ฟอง", "note": null }
+  ],
+  "instructions": [
+    { "description": "ตอกไข่ใส่ชาม" }
+  ],
+  "servings": 2,
+  "imageUrl": null,
+  "category": "อาหารไทย",
+  "difficulty": "Easy"
+}
+
+### List active recipes (defaults: page=1, itempage=10)
+# Returns { "totalRecord": ..., "record": [...] }; empty pages return 200.
+GET {{HomeChef.Api_HostAddress}}/api/recipes
 Accept: application/json
 
-###
+### List a specific page (itempage must be between 1 and 100)
+GET {{HomeChef.Api_HostAddress}}/api/recipes?page={{page}}&itempage={{itempage}}
+Accept: application/json
+
+### Read a recipe
+GET {{HomeChef.Api_HostAddress}}/api/recipes/{{recipeId}}
+Accept: application/json
+
+### Fully replace a recipe and clear optional fields
+PUT {{HomeChef.Api_HostAddress}}/api/recipes/{{recipeId}}
+Content-Type: application/json
+
+{
+  "name": "ไข่เจียวหมูสับสูตรใหม่",
+  "description": null,
+  "ingredients": [
+    { "name": "ไข่ไก่", "quantity": 3, "unit": "ฟอง", "note": null }
+  ],
+  "instructions": [
+    { "description": "ตีไข่ให้เข้ากัน" },
+    { "description": "ทอดจนสุก" }
+  ],
+  "servings": 2,
+  "imageUrl": null,
+  "category": null,
+  "difficulty": null
+}
+
+### Soft delete (204 with no body; repeated delete returns 404)
+DELETE {{HomeChef.Api_HostAddress}}/api/recipes/{{recipeId}}

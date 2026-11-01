@@ -13,6 +13,11 @@
 *.sln.docstates
 *.sln.ide
 *.http.user
+*.agents
+/skills-lock.json
+
+# Local Data directory
+/Data/
 
 # Test and coverage output
 [Tt]est[Rr]esults/

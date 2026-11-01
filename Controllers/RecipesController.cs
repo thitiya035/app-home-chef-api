@@ -1,4 +1,5 @@
 
+using System.ComponentModel.DataAnnotations;
 using HomeChef.Api.Contracts.Recipes;
 using HomeChef.Api.Data;
 using HomeChef.Api.Models;
@@ -9,74 +10,58 @@ namespace HomeChef.Api.Controllers;
 
 [ApiController]
 [Route("api/recipes")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
 public sealed class RecipesController(
     HomeChefDbContext db
 ) : ControllerBase
 {
+    // GET /api/recipes
+    [HttpGet]
+    [ProducesResponseType<RecipeListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<RecipeListResponse>> GetAll(
+        CancellationToken cancellationToken,
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery, Range(1, 100)] int itempage = 10)
+    {
+        var query = db.Recipes.AsNoTracking();
+        var totalRecord = await query.CountAsync(cancellationToken);
+        var offset = ((long)page - 1) * itempage;
+
+        if (offset >= totalRecord)
+            return Ok(new RecipeListResponse(totalRecord, []));
+
+        var recipes = await query
+            .Include(r => r.Ingredients)
+            .Include(r => r.Instructions)
+            .AsSplitQuery()
+            .OrderBy(r => r.Id)
+            .Skip((int)offset)
+            .Take(itempage)
+            .ToListAsync(cancellationToken);
+
+        return Ok(new RecipeListResponse(totalRecord, recipes.Select(ToResponse).ToArray()));
+    }
+
     // POST /api/recipes
     [HttpPost]
+    [ProducesResponseType<RecipeResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<RecipeResponse>> Create(
         [FromBody] CreateRecipeRequest request,
         CancellationToken cancellationToken)
     {
-        // 1. Validate
-        ValidateCreate(request);
+        ValidateRecipe(request);
 
         if (!ModelState.IsValid)
             return ValidationProblem(ModelState);
 
-        // 2. Create Recipe
-        var recipe = new Recipe
-        {
-            Name = request.Name!.Trim(),
-            Description = CleanOptional(request.Description),
-            Servings = request.Servings!.Value,
-            ImageUrl = CleanOptional(request.ImageUrl),
-            Category = CleanOptional(request.Category),
-            Difficulty = CleanOptional(request.Difficulty)
-        };
+        var recipe = new Recipe();
+        ApplyRecipe(request, recipe);
 
-        // 3. Map Ingredients
-        for (int i = 0; i < request.Ingredients!.Count; i++)
-        {
-            var input = request.Ingredients[i]!;
-            decimal? quantity = null;
-
-            if (input.Quantity is decimal raw)
-            {
-                decimal rounded = Math.Round(
-                    raw, 2, MidpointRounding.AwayFromZero);
-
-                quantity = rounded == 0m ? 0.01m : rounded;
-            }
-
-            recipe.Ingredients.Add(new RecipeIngredient
-            {
-                Position = i + 1,
-                Name = input.Name!.Trim(),
-                Quantity = quantity,
-                Unit = CleanOptional(input.Unit),
-                Note = CleanOptional(input.Note)
-            });
-        }
-
-        // 4. Map Instructions
-        for (int i = 0; i < request.Instructions!.Count; i++)
-        {
-            var input = request.Instructions[i]!;
-
-            recipe.Instructions.Add(new RecipeInstruction
-            {
-                StepNumber = i + 1,
-                Description = input.Description!.Trim()
-            });
-        }
-
-        // 5. Insert into PostgreSQL
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(cancellationToken);
 
-        // 6. Return 201 Created
         return CreatedAtAction(
             nameof(GetById),
             new { id = recipe.Id },
@@ -86,6 +71,8 @@ public sealed class RecipesController(
 
     // GET /api/recipes/{id}
     [HttpGet("{id:guid}")]
+    [ProducesResponseType<RecipeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RecipeResponse>> GetById(
         Guid id,
         CancellationToken cancellationToken)
@@ -103,8 +90,66 @@ public sealed class RecipesController(
         return Ok(ToResponse(recipe));
     }
 
+    // PUT /api/recipes/{id}
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType<RecipeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecipeResponse>> Update(
+        Guid id,
+        [FromBody] CreateRecipeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ValidateRecipe(request);
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var recipe = await db.Recipes
+            .Include(r => r.Ingredients)
+            .Include(r => r.Instructions)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (recipe is null)
+            return NotFound();
+
+        db.RemoveRange(recipe.Ingredients);
+        db.RemoveRange(recipe.Instructions);
+        recipe.Ingredients.Clear();
+        recipe.Instructions.Clear();
+
+        // Free the unique (recipe_id, position/step_number) keys before replacement.
+        // Both saves are in one transaction so a failure restores the original recipe.
+        await db.SaveChangesAsync(cancellationToken);
+        ApplyRecipe(request, recipe);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Ok(ToResponse(recipe));
+    }
+
+    // DELETE /api/recipes/{id}
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var deletedAt = DateTimeOffset.UtcNow;
+        var affected = await db.Recipes
+            .Where(r => r.Id == id)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(r => r.DeletedAt, deletedAt),
+                cancellationToken);
+
+        if (affected == 0)
+            return NotFound();
+
+        return NoContent();
+    }
+
     // Business Validation
-    private void ValidateCreate(CreateRecipeRequest request)
+    private void ValidateRecipe(CreateRecipeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             ModelState.AddModelError(
@@ -206,6 +251,45 @@ public sealed class RecipesController(
         {
             ModelState.AddModelError(
                 field, $"{field} must be {max} characters or fewer.");
+        }
+    }
+
+    private static void ApplyRecipe(CreateRecipeRequest request, Recipe recipe)
+    {
+        recipe.Name = request.Name!.Trim();
+        recipe.Description = CleanOptional(request.Description);
+        recipe.Servings = request.Servings!.Value;
+        recipe.ImageUrl = CleanOptional(request.ImageUrl);
+        recipe.Category = CleanOptional(request.Category);
+        recipe.Difficulty = CleanOptional(request.Difficulty);
+
+        for (int i = 0; i < request.Ingredients!.Count; i++)
+        {
+            var input = request.Ingredients[i]!;
+            decimal? quantity = null;
+            if (input.Quantity is decimal raw)
+            {
+                decimal rounded = Math.Round(raw, 2, MidpointRounding.AwayFromZero);
+                quantity = rounded == 0m ? 0.01m : rounded;
+            }
+
+            recipe.Ingredients.Add(new RecipeIngredient
+            {
+                Position = i + 1,
+                Name = input.Name!.Trim(),
+                Quantity = quantity,
+                Unit = CleanOptional(input.Unit),
+                Note = CleanOptional(input.Note)
+            });
+        }
+
+        for (int i = 0; i < request.Instructions!.Count; i++)
+        {
+            recipe.Instructions.Add(new RecipeInstruction
+            {
+                StepNumber = i + 1,
+                Description = request.Instructions[i]!.Description!.Trim()
+            });
         }
     }
 
